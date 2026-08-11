@@ -38,23 +38,35 @@ def get_profile_user(db, user_id):
     }
 
 
-def get_profile_stats(db, user_id):
-    totals = db.execute(
-        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
-        (user_id,),
-    ).fetchone()
+def build_date_range_filter(user_id, date_range):
+    """Return (range_clause, params) for scoping an expenses query to user_id,
+    optionally narrowed to an inclusive (start, end) date_range. range_clause
+    is always one of two hardcoded literals — never built from user input —
+    so splicing it into query text carries no injection risk; the actual
+    start/end values are still passed as bound `?` params."""
+    params = [user_id]
+    range_clause = ""
+    if date_range:
+        range_clause = "AND date BETWEEN ? AND ?"
+        params.extend(date_range)
+    return range_clause, params
 
-    top = db.execute(
-        """
+
+def get_profile_stats(db, user_id, date_range=None):
+    totals_query = "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?"
+    top_query = """
         SELECT category, COUNT(*) AS n
         FROM expenses
         WHERE user_id = ?
+        {range_clause}
         GROUP BY category
         ORDER BY n DESC
         LIMIT 1
-        """,
-        (user_id,),
-    ).fetchone()
+    """
+    range_clause, params = build_date_range_filter(user_id, date_range)
+
+    totals = db.execute(f"{totals_query} {range_clause}", params).fetchone()
+    top = db.execute(top_query.format(range_clause=range_clause), params).fetchone()
 
     return {
         "total_spent": f"₹{totals['total']:,.2f}",
@@ -63,16 +75,20 @@ def get_profile_stats(db, user_id):
     }
 
 
-def get_profile_transactions(db, user_id, limit=10):
+def get_profile_transactions(db, user_id, limit=10, date_range=None):
+    range_clause, params = build_date_range_filter(user_id, date_range)
+    params.append(limit)
+
     rows = db.execute(
-        """
+        f"""
         SELECT date, description, category, amount
         FROM expenses
         WHERE user_id = ?
+        {range_clause}
         ORDER BY date DESC
         LIMIT ?
         """,
-        (user_id, limit),
+        params,
     ).fetchall()
 
     transactions = []
@@ -87,16 +103,19 @@ def get_profile_transactions(db, user_id, limit=10):
     return transactions
 
 
-def get_profile_category_breakdown(db, user_id):
+def get_profile_category_breakdown(db, user_id, date_range=None):
+    range_clause, params = build_date_range_filter(user_id, date_range)
+
     rows = db.execute(
-        """
+        f"""
         SELECT category, SUM(amount) AS total
         FROM expenses
         WHERE user_id = ?
+        {range_clause}
         GROUP BY category
         ORDER BY total DESC
         """,
-        (user_id,),
+        params,
     ).fetchall()
 
     grand_total = sum(row["total"] for row in rows)
@@ -114,6 +133,29 @@ def get_profile_category_breakdown(db, user_id):
             "percent": pct,
         })
     return breakdown
+
+
+def parse_date_range(args):
+    start = args.get("start")
+    end = args.get("end")
+
+    if not start or not end:
+        return None, None
+
+    try:
+        # Normalize to zero-padded YYYY-MM-DD so string comparison (both here
+        # and in the SQL BETWEEN clause) matches chronological order — strptime
+        # itself accepts unpadded input like "2024-9-5", which would otherwise
+        # sort incorrectly against "2024-10-01".
+        start = datetime.strptime(start, "%Y-%m-%d").strftime("%Y-%m-%d")
+        end = datetime.strptime(end, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None, None
+
+    if start > end:
+        return None, None
+
+    return start, end
 
 
 @app.context_processor
@@ -223,12 +265,17 @@ def profile():
         session.pop("user_id", None)
         return redirect(url_for("login"))
 
+    start, end = parse_date_range(request.args)
+    date_range = (start, end) if start else None
+
     return render_template(
         "profile.html",
         user=user,
-        stats=get_profile_stats(db, user_id),
-        transactions=get_profile_transactions(db, user_id),
-        categories=get_profile_category_breakdown(db, user_id),
+        stats=get_profile_stats(db, user_id, date_range),
+        transactions=get_profile_transactions(db, user_id, date_range=date_range),
+        categories=get_profile_category_breakdown(db, user_id, date_range),
+        filter_start=request.args.get("start", ""),
+        filter_end=request.args.get("end", ""),
     )
 
 
