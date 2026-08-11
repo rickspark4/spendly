@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -13,43 +14,112 @@ with app.app_context():
     seed_db()
 
 
-# Hardcoded profile data — Step 4 placeholder, real queries in Step 5
-PROFILE_USER = {
-    "name": "Demo User",
-    "email": "demo@spendly.com",
-    "initials": "DU",
-    "member_since": "March 2025",
-}
+# ------------------------------------------------------------------ #
+# Profile data helpers                                                #
+# ------------------------------------------------------------------ #
 
-PROFILE_STATS = {
-    "total_spent": "₹18,240",
-    "transaction_count": 34,
-    "top_category": "Food",
-}
+def get_profile_user(db, user_id):
+    row = db.execute(
+        "SELECT name, email, created_at FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
 
-PROFILE_TRANSACTIONS = [
-    {"date": "11 Aug 2026", "description": "Grocery run at BigBasket", "category": "Food", "amount": "₹1,240.00"},
-    {"date": "09 Aug 2026", "description": "Uber to airport", "category": "Transport", "amount": "₹650.00"},
-    {"date": "07 Aug 2026", "description": "Electricity bill — August", "category": "Bills", "amount": "₹2,180.00"},
-    {"date": "05 Aug 2026", "description": "Pharmacy — cold medicine", "category": "Health", "amount": "₹340.00"},
-    {"date": "03 Aug 2026", "description": "Movie night with friends", "category": "Entertainment", "amount": "₹980.00"},
-    {"date": "01 Aug 2026", "description": "New running shoes", "category": "Shopping", "amount": "₹3,499.00"},
-]
+    if row is None:
+        return None
 
-PROFILE_CATEGORY_BREAKDOWN = [
-    {"category": "Food", "total": "₹5,420", "percent": 30},
-    {"category": "Bills", "total": "₹4,360", "percent": 25},
-    {"category": "Shopping", "total": "₹3,499", "percent": 20},
-    {"category": "Entertainment", "total": "₹2,180", "percent": 10},
-    {"category": "Transport", "total": "₹1,650", "percent": 10},
-    {"category": "Health", "total": "₹1,131", "percent": 5},
-]
+    initials = "".join(part[0].upper() for part in row["name"].split()[:2])
+    created_at = datetime.strptime(row["created_at"], "%Y-%m-%d %H:%M:%S")
+
+    return {
+        "name": row["name"],
+        "email": row["email"],
+        "initials": initials,
+        "member_since": created_at.strftime("%B %Y"),
+    }
+
+
+def get_profile_stats(db, user_id):
+    totals = db.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    top = db.execute(
+        """
+        SELECT category, COUNT(*) AS n
+        FROM expenses
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY n DESC
+        LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
+
+    return {
+        "total_spent": f"₹{totals['total']:,.2f}",
+        "transaction_count": totals["count"],
+        "top_category": top["category"] if top else "—",
+    }
+
+
+def get_profile_transactions(db, user_id, limit=10):
+    rows = db.execute(
+        """
+        SELECT date, description, category, amount
+        FROM expenses
+        WHERE user_id = ?
+        ORDER BY date DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+
+    transactions = []
+    for row in rows:
+        exp_date = datetime.strptime(row["date"], "%Y-%m-%d")
+        transactions.append({
+            "date": exp_date.strftime("%d %b %Y"),
+            "description": row["description"],
+            "category": row["category"],
+            "amount": f"₹{row['amount']:,.2f}",
+        })
+    return transactions
+
+
+def get_profile_category_breakdown(db, user_id):
+    rows = db.execute(
+        """
+        SELECT category, SUM(amount) AS total
+        FROM expenses
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    grand_total = sum(row["total"] for row in rows)
+    if grand_total <= 0:
+        return []
+
+    breakdown = []
+    for row in rows:
+        raw_pct = (row["total"] / grand_total) * 100
+        pct = int(round(raw_pct / 5) * 5)
+        pct = max(5, min(100, pct))
+        breakdown.append({
+            "category": row["category"],
+            "total": f"₹{row['total']:,.2f}",
+            "percent": pct,
+        })
+    return breakdown
 
 
 @app.context_processor
 def inject_current_user():
     if session.get("user_id"):
-        return {"current_user": PROFILE_USER}
+        return {"current_user": get_profile_user(get_db(), session["user_id"])}
     return {"current_user": None}
 
 
@@ -144,12 +214,21 @@ def profile():
     if not session.get("user_id"):
         return redirect(url_for("login"))
 
+    db = get_db()
+    user_id = session["user_id"]
+
+    user = get_profile_user(db, user_id)
+    if user is None:
+        # Stale session referencing a user that no longer exists in the DB
+        session.pop("user_id", None)
+        return redirect(url_for("login"))
+
     return render_template(
         "profile.html",
-        user=PROFILE_USER,
-        stats=PROFILE_STATS,
-        transactions=PROFILE_TRANSACTIONS,
-        categories=PROFILE_CATEGORY_BREAKDOWN,
+        user=user,
+        stats=get_profile_stats(db, user_id),
+        transactions=get_profile_transactions(db, user_id),
+        categories=get_profile_category_breakdown(db, user_id),
     )
 
 
