@@ -32,6 +32,22 @@
         </div>
 
         <div class="profile-block">
+            <h2 class="profile-block-title">Filter by Date</h2>
+            <form method="GET" action="{{ url_for('profile') }}" class="filter-form">
+                <div class="form-group">
+                    <label for="start">From</label>
+                    <input class="form-input" type="date" id="start" name="start" value="{{ filter_start }}">
+                </div>
+                <div class="form-group">
+                    <label for="end">To</label>
+                    <input class="form-input" type="date" id="end" name="end" value="{{ filter_end }}">
+                </div>
+                <button type="submit" class="btn-primary">Filter</button>
+                <a href="{{ url_for('profile') }}" class="btn-ghost">Clear</a>
+            </form>
+        </div>
+
+        <div class="profile-block">
             <h2 class="profile-block-title">Recent Transactions</h2>
             <table class="transaction-table">
                 <thead>
