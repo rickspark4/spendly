@@ -19,6 +19,11 @@
     --border: #e4e1da;
     --border-soft: #eeebe4;
 
+    --cat-transport: #4a7fd4;
+    --cat-bills: #7c6fd0;
+    --cat-health: #2f9e6e;
+    --cat-entertainment: #d1548a;
+
     --font-display: 'DM Serif Display', Georgia, serif;
     --font-body: 'DM Sans', system-ui, sans-serif;
 
@@ -567,12 +572,170 @@ a { color: inherit; text-decoration: none; }
     .mock-stats { grid-template-columns: 1fr; }
 
     .features-inner { grid-template-columns: 1fr; }
+
+    .profile-breakdown .mock-bar-row { grid-template-columns: 90px 1fr 70px; }
 }
 
 @media (max-width: 600px) {
     .nav-links a:not(.nav-cta) { display: none; }
     .hero { padding: 3rem 1rem 2rem; }
+
+    .nav-username { display: none; }
+    .profile-card { flex-direction: column; text-align: center; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Profile page                                                        */
+/* ------------------------------------------------------------------ */
+
+.nav-username {
+    color: var(--ink-muted);
+    font-size: 0.9rem;
+}
+
+.profile-section {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+}
+
+.profile-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.profile-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+}
+
+.profile-avatar {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-name {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    color: var(--ink);
+}
+
+.profile-email,
+.profile-member-since {
+    color: var(--ink-muted);
+    font-size: 0.9rem;
+}
+
+.profile-block {
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+}
+
+.profile-block-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--ink);
+    margin-bottom: 1.25rem;
+}
+
+.transaction-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.transaction-table th {
+    text-align: left;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 0.5rem;
+}
+
+.transaction-table td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--border-soft);
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+}
+
+.transaction-table .text-right { text-align: right; }
+
+.category-badge {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--paper-card);
+}
+
+.category-badge-food { background: var(--accent-2); }
+.category-badge-transport { background: var(--cat-transport); }
+.category-badge-bills { background: var(--cat-bills); }
+.category-badge-health { background: var(--cat-health); }
+.category-badge-entertainment { background: var(--cat-entertainment); }
+.category-badge-shopping { background: var(--accent); }
+.category-badge-other { background: var(--ink-faint); }
+
+.profile-breakdown .mock-bar-row {
+    grid-template-columns: 120px 1fr 90px;
+}
+
+.category-total {
+    text-align: right;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+}
+
+.category-bar-food { background: var(--accent-2); }
+.category-bar-transport { background: var(--cat-transport); }
+.category-bar-bills { background: var(--cat-bills); }
+.category-bar-health { background: var(--cat-health); }
+.category-bar-entertainment { background: var(--cat-entertainment); }
+.category-bar-shopping { background: var(--accent); }
+.category-bar-other { background: var(--ink-faint); }
+
+/* Width utility classes — used instead of inline style="width:%"
+   since profile page data is hardcoded (Step 4 rule: no inline styles) */
+.bar-pct-5   { width: 5%; }
+.bar-pct-10  { width: 10%; }
+.bar-pct-15  { width: 15%; }
+.bar-pct-20  { width: 20%; }
+.bar-pct-25  { width: 25%; }
+.bar-pct-30  { width: 30%; }
+.bar-pct-35  { width: 35%; }
+.bar-pct-40  { width: 40%; }
+.bar-pct-45  { width: 45%; }
+.bar-pct-50  { width: 50%; }
+.bar-pct-55  { width: 55%; }
+.bar-pct-60  { width: 60%; }
+.bar-pct-65  { width: 65%; }
+.bar-pct-70  { width: 70%; }
+.bar-pct-75  { width: 75%; }
+.bar-pct-80  { width: 80%; }
+.bar-pct-85  { width: 85%; }
+.bar-pct-90  { width: 90%; }
+.bar-pct-95  { width: 95%; }
+.bar-pct-100 { width: 100%; }
 
 /* ------------------------------------------------------------------ */
 /* Legal pages                                                         */

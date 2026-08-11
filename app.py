@@ -13,12 +13,54 @@ with app.app_context():
     seed_db()
 
 
+# Hardcoded profile data — Step 4 placeholder, real queries in Step 5
+PROFILE_USER = {
+    "name": "Demo User",
+    "email": "demo@spendly.com",
+    "initials": "DU",
+    "member_since": "March 2025",
+}
+
+PROFILE_STATS = {
+    "total_spent": "₹18,240",
+    "transaction_count": 34,
+    "top_category": "Food",
+}
+
+PROFILE_TRANSACTIONS = [
+    {"date": "11 Aug 2026", "description": "Grocery run at BigBasket", "category": "Food", "amount": "₹1,240.00"},
+    {"date": "09 Aug 2026", "description": "Uber to airport", "category": "Transport", "amount": "₹650.00"},
+    {"date": "07 Aug 2026", "description": "Electricity bill — August", "category": "Bills", "amount": "₹2,180.00"},
+    {"date": "05 Aug 2026", "description": "Pharmacy — cold medicine", "category": "Health", "amount": "₹340.00"},
+    {"date": "03 Aug 2026", "description": "Movie night with friends", "category": "Entertainment", "amount": "₹980.00"},
+    {"date": "01 Aug 2026", "description": "New running shoes", "category": "Shopping", "amount": "₹3,499.00"},
+]
+
+PROFILE_CATEGORY_BREAKDOWN = [
+    {"category": "Food", "total": "₹5,420", "percent": 30},
+    {"category": "Bills", "total": "₹4,360", "percent": 25},
+    {"category": "Shopping", "total": "₹3,499", "percent": 20},
+    {"category": "Entertainment", "total": "₹2,180", "percent": 10},
+    {"category": "Transport", "total": "₹1,650", "percent": 10},
+    {"category": "Health", "total": "₹1,131", "percent": 5},
+]
+
+
+@app.context_processor
+def inject_current_user():
+    if session.get("user_id"):
+        return {"current_user": PROFILE_USER}
+    return {"current_user": None}
+
+
 # ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
 
 @app.route("/")
 def landing():
+    if "user_id" in session:
+        return redirect(url_for("profile"))
     return render_template("landing.html")
 
 
@@ -97,14 +139,23 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/profile")
+def profile():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template(
+        "profile.html",
+        user=PROFILE_USER,
+        stats=PROFILE_STATS,
+        transactions=PROFILE_TRANSACTIONS,
+        categories=PROFILE_CATEGORY_BREAKDOWN,
+    )
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
-
 
 @app.route("/expenses/add")
 def add_expense():
