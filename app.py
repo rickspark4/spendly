@@ -251,6 +251,14 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/analytics")
+def analytics():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template("analytics.html")
+
+
 @app.route("/profile")
 def profile():
     if not session.get("user_id"):
