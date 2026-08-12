@@ -1,10 +1,11 @@
+import math
 import os
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database.db import get_db, init_db, seed_db
+from database.db import CATEGORIES, get_db, init_db, seed_db
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -158,6 +159,55 @@ def parse_date_range(args):
     return start, end
 
 
+DESCRIPTION_MAX_LENGTH = 255
+
+
+def parse_expense_form(form):
+    """Validate a submitted add-expense form. Returns (data, error) where
+    data holds the cleaned fields on success and error is None; on failure
+    data holds the raw submitted values (for re-rendering the form) and
+    error is a user-facing message for the first invalid field."""
+    amount_raw = form.get("amount", "").strip()
+    category = form.get("category", "").strip()
+    date_raw = form.get("date", "").strip()
+    description = form.get("description", "").strip()
+
+    data = {
+        "amount": amount_raw,
+        "category": category,
+        "date": date_raw,
+        "description": description,
+    }
+
+    try:
+        amount = float(amount_raw)
+        if not math.isfinite(amount):
+            amount = None
+    except ValueError:
+        amount = None
+
+    if amount is None or amount <= 0:
+        return data, "Enter a valid amount greater than 0."
+
+    if category not in CATEGORIES:
+        return data, "Select a valid category."
+
+    try:
+        expense_date = datetime.strptime(date_raw, "%Y-%m-%d").date()
+    except ValueError:
+        return data, "Enter a valid date (not in the future)."
+
+    if expense_date > date.today():
+        return data, "Enter a valid date (not in the future)."
+
+    if len(description) > DESCRIPTION_MAX_LENGTH:
+        return data, f"Description must be {DESCRIPTION_MAX_LENGTH} characters or fewer."
+
+    data["amount"] = amount
+    data["date"] = expense_date.isoformat()
+    return data, None
+
+
 @app.context_processor
 def inject_current_user():
     if session.get("user_id"):
@@ -287,14 +337,47 @@ def profile():
     )
 
 
+@app.route("/expenses/add", methods=["GET", "POST"])
+def add_expense():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        return render_template(
+            "expenses/add.html",
+            categories=CATEGORIES,
+            date=date.today().isoformat(),
+        )
+
+    data, error = parse_expense_form(request.form)
+    if error:
+        return render_template("expenses/add.html", error=error, categories=CATEGORIES, **data)
+
+    # data holds cleaned/typed values here (float amount, ISO date string) —
+    # distinct from the raw strings returned alongside a validation error above.
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO expenses (user_id, amount, category, date, description) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                session["user_id"],
+                data["amount"],
+                data["category"],
+                data["date"],
+                data["description"] or None,
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    return redirect(url_for("profile"))
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/expenses/add")
-def add_expense():
-    return "Add expense — coming in Step 7"
-
 
 @app.route("/expenses/<int:id>/edit")
 def edit_expense(id):

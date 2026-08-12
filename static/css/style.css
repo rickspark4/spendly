@@ -660,6 +660,19 @@ a { color: inherit; text-decoration: none; }
     margin-bottom: 1.25rem;
 }
 
+.profile-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.profile-block-header .profile-block-title {
+    margin-bottom: 0;
+}
+
 .filter-form {
     display: flex;
     align-items: flex-end;
